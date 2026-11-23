@@ -39,6 +39,7 @@ services:
   worker:
     <<: *python
     container_name: ${COMPOSE_PROJECT_NAME:-berth-delay-boundary}-worker
+    hostname: seat-1
     command: [python, -m, src.worker]
     depends_on:
       db: {condition: service_healthy}

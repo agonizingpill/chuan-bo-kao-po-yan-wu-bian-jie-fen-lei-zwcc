@@ -1,5 +1,5 @@
-import {actions, canWrite, decisions, incidentStates, store, supervisor} from './store.js';
-import {blank, esc, field, form, journal, notes, pill, portDate, selectField, timeInput, title} from './ui.js';
+import {actions, canWrite, decisions, incidentStates, runOutcomes, store, supervisor} from './store.js';
+import {blank, clock, esc, field, form, journal, notes, pill, portDate, selectField, timeInput, title} from './ui.js';
 
 const features = {eta_offset_min: '引航偏离 / 分钟', tide_reserve_min: '潮窗余量 / 分钟', wind_kn: '现场风速 / kn', tug_wait_min: '拖轮等候 / 分钟'};
 
@@ -27,6 +27,28 @@ function boundary(result) {
   <details class="model-details"><summary>计算记录</summary><dl class="measurements"><div><dt>训练 / 验证</dt><dd>${metrics.train_rows} / ${metrics.validation_rows}</dd></div><div><dt>固定种子</dt><dd>${result.seed}</dd></div><div><dt>支持向量数</dt><dd>${metrics.support_vectors}</dd></div></dl><p class="digest">SHA-256 ${esc(result.input_digest)}</p></details></div>`;
 }
 
+function queuedHint(incident) {
+  const run = (store.data.runs || []).find(r => r.incident_code === incident.code && r.outcome === 'computing');
+  const text = run ? `席位 ${run.seat} 第 ${run.attempt} 次接算中，${clock(run.deadline_at)} 前回分，超时由空闲席接算。`
+    : '等待空闲席接算冻结观测，完成后自动更新。';
+  return `<p class="clearance" role="status">${esc(text)}</p>`;
+}
+
+function runLog(incident) {
+  const runs = (store.data.runs || []).filter(r => r.incident_code === incident.code);
+  if (!runs.length) return '';
+  const rows = runs.map(run => {
+    const score = run.result ? `f(x)=${run.result.score >= 0 ? '+' : '−'}${Math.abs(run.result.score).toFixed(4)}` : '';
+    const detail = run.outcome === 'accepted' ? `最终采信 ${score} · ${esc(decisions[run.result.prediction])}`
+      : run.outcome === 'expired' ? `过期判分 ${score} 留档，未采信`
+      : run.outcome === 'failed' ? esc(run.error || '接算失败')
+      : run.outcome === 'timed_out' ? '超过五分钟未回分'
+      : `限 ${esc(clock(run.deadline_at))} 前回分`;
+    return `<li><time>${esc(portDate(run.started_at))}</time><div><strong>第 ${run.attempt} 次 · ${esc(run.seat)}</strong> ${pill(run.outcome, runOutcomes)}<p>${detail}</p></div></li>`;
+  }).join('');
+  return `<h3>接算记录</h3><ol class="journal">${rows}</ol>`;
+}
+
 function actionsFor(incident) {
   if (!supervisor()) return '';
   const code = incident.code;
@@ -49,11 +71,12 @@ function incidentDetail(incident) {
   return `<header class="subhead"><div><div class="reference mono">${esc(incident.code)} / <a href="#schedule/${esc(request.code)}">${esc(request.code)}</a></div><h2>${esc(request.vessel)}</h2></div>${pill(incident.state, incidentStates)}</header>
     <p class="event-note"><span>${esc(incident.radio_reference)} · ${esc(portDate(incident.observed_at))}</span>${esc(incident.event_note)}</p>
     <dl class="feature-list">${Object.entries(features).map(([key, label]) => `<div><dt>${label}</dt><dd>${esc(incident.features[key])}</dd></div>`).join('')}</dl>
-    ${incident.state === 'queued' ? '<p class="clearance" role="status">后台正在计算冻结观测，完成后自动更新。</p>' : ''}
+    ${incident.state === 'queued' ? queuedHint(incident) : ''}
     ${incident.error ? `<p class="warning">${esc(incident.error)}</p>` : ''}
     ${boundary(incident.result)}
     ${incident.state === 'margin_review' ? '<p class="warning">本案处于间隔带。签署分类前无法发布调度指令。</p>' : ''}
     ${incident.decision ? `<p class="clearance">${incident.decided_by ? `主管 ${esc(incident.decided_by)} 签署` : '分类结果'} · <strong>${esc(decisions[incident.decision])}</strong>${incident.decision_reason ? ` · ${esc(incident.decision_reason)}` : ''}</p>` : ''}
+    ${runLog(incident)}
     ${actionsFor(incident)}${action ? `<a class="quiet link-block" href="#reviews/${esc(incident.code)}">打开调度复盘 →</a>` : ''}`;
 }
 

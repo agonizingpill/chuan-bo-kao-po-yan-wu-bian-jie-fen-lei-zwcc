@@ -49,24 +49,24 @@ docker compose exec -T backend python -m scripts.seed_demo
 |---|---|
 | frontend | Nginx 与原生 HTML/CSS/JS，班次图、潮汐与拖轮、间隔带、调度复盘 |
 | backend | FastAPI、SQLAlchemy、JWT 三角色、MySQL 事务与业务审计 |
-| worker | 常驻 Python 进程、Redis 唤醒、持久待分类队列、scikit-learn |
+| worker | 常驻分类席进程、Redis 唤醒、持久待分类队列与接算租约、scikit-learn |
 | db | MySQL 8，实体、时段预约、模型快照、调度指令 |
 | redis | Redis 7，传递案件已入队的唤醒事件 |
 
-`.env.example` 包含 `COMPOSE_PROJECT_NAME`、`FRONTEND_PORT`、`BACKEND_PORT`、`DB_PORT`、`MYSQL_DATABASE`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_ROOT_PASSWORD`、`JWT_SECRET` 与 `SEED_DEMO`。本地连接还可配置 `MYSQL_HOST`、`MYSQL_PORT`、`REDIS_URL`。默认凭据用于演示环境。`database`、`queue`、`artifacts` 为命名卷，数据库保存模型与业务记录，`artifacts` 为 API 与 worker 的共享产物目录。
+`.env.example` 包含 `COMPOSE_PROJECT_NAME`、`FRONTEND_PORT`、`BACKEND_PORT`、`DB_PORT`、`MYSQL_DATABASE`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_ROOT_PASSWORD`、`JWT_SECRET` 与 `SEED_DEMO`。本地连接还可配置 `MYSQL_HOST`、`MYSQL_PORT`、`REDIS_URL`。分类席另有 `SEAT_NAME`（默认取主机名）与 `RUN_LEASE_MINUTES`（默认 5 分钟接算租约）。默认凭据用于演示环境。`database`、`queue`、`artifacts` 为命名卷，数据库保存模型与业务记录，`artifacts` 为 API 与 worker 的共享产物目录。
 
 ## 算法和排程规则
 
 - 确认靠泊要求整个操纵区间都落在潮窗内、吃水不超限、拖轮预约与计划吻合、同泊位无其他已确认的重叠操纵。区间采用左闭右开口径。改期释放之前的拖轮预约，并保留历史记录。
 - 四项模型输入为引航偏离、潮窗结束余量、实测风速、拖轮等候。创建案件时冻结输入并生成 SHA-256。固定种子 `1074` 生成 720 条训练样本与独立生成的 240 条验证样本。`StandardScaler` 将训练特征中心化、缩放，再以 `SVC(kernel='rbf', C=1.7, gamma='scale')` 拟合。二分类用 `decision_function` 的符号提供建议，`|f(x)| ≤ 0.30` 进入人工复核。平衡准确率为两类召回率的均值。模型结果保留支持向量数、合成验证指标、参数和版本。
-- worker 使用 MySQL 待处理状态和行锁领取案件，Redis 唤醒丢失时继续扫描。计算失败写入错误，主管可以沿用冻结摘要重试。成功后原模型建议持续保留，模型签署与人工签署有不同的记录字段。
+- worker 以分类席身份接算案件：每次领取登记一条接算记录，五分钟未回分即超时，由空闲席接算。两席同时提交判分时，只采信当前接算且未超时的那份，过期判分另行留档。接算失败写入错误，主管可重试，每次都沿用登记时冻结的观测。有效判分产生前，案件不能签署或发令。案件页面列出每次接算、超时与最终采信的判分。Redis 唤醒丢失时继续扫描。成功后原模型建议持续保留，模型签署与人工签署有不同的记录字段。
 - 已确认的计划冻结。调度指令支持跟踪、待命、通知改期。改期指令是发给引航席的交班记录，现场后续排程由引航席另行协调。模型指标源于合成数据，现场岗位发布的动作和实绩通过表单登记。
 
 ## 代码位置
 
 - `backend/src/models.py` 定义实体与数据库约束，`schemas.py` 定义操作数据。`main.py` 首次启动建表，`backend/migrations/README.md` 记录建库入口。
 - `planning.py` 处理资源预约、撤销与确认，`incidents.py` 处理案件、签署、调度与复盘。`routes.py` 接入 JWT 权限和事务。`main.py` 提供请求跟踪、响应策略及全局业务错误处理。
-- `classifier.py` 和 `worker.py` 完成异步分类。`backend/scripts/seed_demo.py` 建立可演示班次。
+- `classifier.py` 和 `worker.py` 完成异步分类与席位接算。`backend/scripts/seed_demo.py` 建立可演示班次。
 - `frontend/src/api.js` 对接接口，`store.js` 保存值班会话和班次数据，`planning.js` 和 `incidents.js` 提供业务页面，`ui.js` 复用状态标签、编辑表单、交班时间线和格式化函数。
 - 角色、申请状态、案件状态、分类和动作枚举在 `backend/src/models.py` 与 `frontend/src/store.js` 定义。后端 `schemas.py`、`security.py`、`routes.py`、`planning.py`、`incidents.py`、`worker.py` 与 `seed_demo.py` 消费上述枚举，分类器持久化两类预测标签。前端 `app.js`、`planning.js` 与 `incidents.js` 消费相同的 API 值。
 

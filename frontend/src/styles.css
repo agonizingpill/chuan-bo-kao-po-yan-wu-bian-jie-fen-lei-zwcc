@@ -85,8 +85,9 @@ td a { font: 600 .9rem var(--mono); }
 .active-row, .selected-entry { background: oklch(31% .047 234); }
 .pill { display: inline-flex; align-items: center; gap: 5px; padding: .25rem .48rem; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; font-size: .76rem; }
 .pill i { width: 6px; height: 6px; background: currentColor; border-radius: 50%; }
-.pill.confirmed, .pill.completed, .pill.closed, .pill.ready { color: var(--sea); }
-.pill.margin_review, .pill.failed { color: var(--amber); }
+.pill.confirmed, .pill.completed, .pill.closed, .pill.ready, .pill.accepted { color: var(--sea); }
+.pill.margin_review, .pill.failed, .pill.expired, .pill.timed_out { color: var(--amber); }
+.pill.computing { color: var(--tide); }
 .measurements, .feature-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin: 15px 0 11px; }
 .feature-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .measurements div, .feature-list div { border-left: 1px solid var(--line); padding-left: 9px; }

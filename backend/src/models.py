@@ -37,6 +37,14 @@ class Action(StrEnum):
     STANDBY = 'standby'
 
 
+class RunOutcome(StrEnum):
+    COMPUTING = 'computing'
+    ACCEPTED = 'accepted'
+    EXPIRED = 'expired'
+    FAILED = 'failed'
+    TIMED_OUT = 'timed_out'
+
+
 def enum(kind):
     return Enum(kind, values_callable=lambda members: [member.value for member in members])
 
@@ -123,6 +131,25 @@ class DelayIncident(Base):
     decided_by = mapped_column(ForeignKey('users.username'))
     decision_reason = mapped_column(String(300))
     decided_at = mapped_column(DateTime)
+
+
+class ClassificationRun(Base):
+    __tablename__ = 'classification_runs'
+    __table_args__ = (
+        CheckConstraint('deadline_at > started_at'),
+        Index('run_incident_idx', 'incident_code', 'id'),
+        Index('run_attempt_idx', 'incident_code', 'attempt', unique=True),
+    )
+    id = mapped_column(Integer, primary_key=True)
+    incident_code = mapped_column(ForeignKey('delay_incidents.code'), nullable=False)
+    seat = mapped_column(String(64), nullable=False)
+    attempt = mapped_column(Integer, nullable=False)
+    started_at = mapped_column(DateTime, nullable=False)
+    deadline_at = mapped_column(DateTime, nullable=False)
+    finished_at = mapped_column(DateTime)
+    outcome = mapped_column(enum(RunOutcome), nullable=False, default=RunOutcome.COMPUTING)
+    result = mapped_column(JSON)
+    error = mapped_column(String(180))
 
 
 class DispatchReview(Base):

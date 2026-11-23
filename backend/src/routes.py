@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from . import incidents, planning
 from .database import Session
-from .models import Audit, Berth, BerthRequest, DelayIncident, DispatchReview, Role, TideWindow, Tug, TugAssignment, User
+from .models import Audit, Berth, BerthRequest, ClassificationRun, DelayIncident, DispatchReview, Role, TideWindow, Tug, TugAssignment, User
 from .schemas import AssignTug, CloseInput, DispatchInput, IncidentInput, Login, MarginDecision, RequestInput, Schedule, TideInput
 from .security import current_user, permitted, token_for, valid_password
 
@@ -46,6 +46,7 @@ def watch(user: User = read):
             'requests': requests,
             'assignments': [row(item) for item in db.scalars(select(TugAssignment).order_by(TugAssignment.starts_at))],
             'incidents': [row(item) for item in db.scalars(select(DelayIncident).order_by(DelayIncident.observed_at.desc()))],
+            'runs': [row(item) for item in db.scalars(select(ClassificationRun).order_by(ClassificationRun.id.desc()))],
             'reviews': [row(item) for item in db.scalars(select(DispatchReview).order_by(DispatchReview.issued_at.desc()))],
         }
 

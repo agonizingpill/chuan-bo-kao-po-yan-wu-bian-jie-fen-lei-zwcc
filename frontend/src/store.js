@@ -1,6 +1,7 @@
 export const roles = {operator: '值班调度员', supervisor: '调度主管', viewer: '只读观察员'};
 export const requestStates = {requested: '待核验', tug_reserved: '已预约拖轮', confirmed: '已确认', completed: '已完成'};
 export const incidentStates = {queued: '待计算', failed: '计算失败', margin_review: '待人工复核', ready: '待发布指令', actioned: '待复盘', closed: '已结案'};
+export const runOutcomes = {computing: '接算中', accepted: '已采信', expired: '过期留档', failed: '接算失败', timed_out: '已超时'};
 export const decisions = {routine: '常规跟踪', priority: '优先处置'};
 export const actions = {monitor: '继续跟踪', standby: '拖轮待命', retime: '通知改期'};
 

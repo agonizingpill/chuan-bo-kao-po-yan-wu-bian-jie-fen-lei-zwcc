@@ -54,12 +54,18 @@ def retry(db: DatabaseSession, actor: str, code: str):
         raise Rejected('RETRY_STATE', '只有计算失败的案件可以重试', code)
     incident.state = IncidentState.QUEUED
     incident.error = None
-    audit(db, actor, code, 'INCIDENT_REQUEUED', f'复用输入摘要 {incident.input_digest}')
+    audit(db, actor, code, 'INCIDENT_REQUEUED', f'沿用登记时冻结观测 · 摘要 {incident.input_digest}')
     return incident
+
+
+def require_score(incident):
+    if not incident.result:
+        raise Rejected('SCORE_PENDING', '有效判分产生前，案件不能签署或发令', incident.code)
 
 
 def review_margin(db: DatabaseSession, actor: str, code: str, data: MarginDecision):
     incident = find(db, DelayIncident, code, lock=True)
+    require_score(incident)
     if incident.state != IncidentState.MARGIN_REVIEW:
         raise Rejected('NOT_IN_MARGIN_REVIEW', '案件当前未等待间隔带复核', code)
     incident.decision = data.decision
@@ -73,6 +79,7 @@ def review_margin(db: DatabaseSession, actor: str, code: str, data: MarginDecisi
 
 def dispatch(db: DatabaseSession, actor: str, code: str, data: DispatchInput):
     incident = find(db, DelayIncident, code, lock=True)
+    require_score(incident)
     if incident.state == IncidentState.MARGIN_REVIEW:
         raise Rejected('MARGIN_REVIEW_REQUIRED', '间隔带案件必须由主管签署人工分类', code)
     if incident.state != IncidentState.READY or not incident.decision:

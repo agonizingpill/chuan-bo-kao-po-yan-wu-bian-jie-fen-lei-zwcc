@@ -2,7 +2,7 @@ from sqlalchemy import func, select
 
 from src.database import Session
 from src.incidents import report
-from src.models import Audit, Berth, BerthRequest, DelayIncident, DispatchReview, Role, TideWindow, Tug, TugAssignment, User
+from src.models import Audit, Berth, BerthRequest, ClassificationRun, DelayIncident, DispatchReview, Role, TideWindow, Tug, TugAssignment, User
 from src.planning import add_request, add_window, confirm, reserve_tug
 from src.schemas import IncidentInput, RequestInput, TideInput
 from src.security import password_hash
@@ -49,7 +49,7 @@ def seed():
                    radio_reference='VHF-12/0930-19', observed_at='2026-11-21T09:48', wind_kn=14,
                    tug_wait_min=12, event_note='引航员通报拖轮还在回转区，现场请示是否申请待命。'))
         db.flush()
-        tables = (User, Berth, Tug, TideWindow, BerthRequest, TugAssignment, DelayIncident, DispatchReview, Audit)
+        tables = (User, Berth, Tug, TideWindow, BerthRequest, TugAssignment, DelayIncident, ClassificationRun, DispatchReview, Audit)
         return {table.__tablename__: db.scalar(select(func.count()).select_from(table)) for table in tables}
 
 
